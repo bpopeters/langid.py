@@ -106,6 +106,22 @@ def classify(instance):
 
   return identifier.classify(instance)
 
+
+def classify_batch(instances):
+  """
+  Convenience method using a global identifier instance with the default
+  model included in langid.py. Identifies the language that a string is 
+  written in.
+
+  @param instance a text string. Unicode strings will automatically be utf8-encoded
+  @returns a tuple of the most likely language and the confidence score
+  """
+  global identifier
+  if identifier is None:
+    load_model()
+
+  return identifier.classify_batch(instances)
+
 def rank(instance):
   """
   Convenience method using a global identifier instance with the default
@@ -298,6 +314,19 @@ class LanguageIdentifier(object):
     conf = float(probs[cl])
     pred = str(self.nb_classes[cl])
     return pred, conf
+
+  def classify_batch(self, texts):
+    """
+    Classify several instances.
+    """
+    batch_size = len(texts)
+    fvs = np.stack([self.instance2fv(text) for text in texts])
+    logits = self.nb_classprobs(fvs)  # should broadcast wtihout change
+    preds = np.argmax(logits, axis=-1)
+    assert preds.shape[0] == batch_size
+    confs = [float(logits[i, pred]) for i, pred in enumerate(preds)]  # probably not the best way
+    names = [str(self.nb_classes[pred]) for pred in preds]
+    return list(zip(confs, names))
 
   def rank(self, text):
     """
